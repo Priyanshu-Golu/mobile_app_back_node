@@ -106,45 +106,7 @@ exports.login = asyncHandler(async (req, res) => {
     });
   }
 
-  // OTP logic for verified users
-  if (user.isVerified) {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.loginOtp = otp;
-    user.loginOtpExpire = Date.now() + 10 * 60 * 1000;
-    await user.save();
-
-    try {
-      await sendEmail({
-        email: user.email,
-        subject: 'Tap2Help — Login Verification',
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px;">
-            <h2>Login Verification</h2>
-            <p>Hello ${user.name},</p>
-            <p>As a verified customer, you have an extra layer of security. Please use the following code to complete your login:</p>
-            <h1 style="letter-spacing: 5px; color: #4F46E5;">${otp}</h1>
-            <p>This code is valid for 10 minutes.</p>
-            <br>
-            <p>Best regards,<br>Tap2Help Team</p>
-          </div>
-        `,
-      });
-      return res.status(200).json({
-        success: true,
-        requiresOtp: true,
-        email: user.email,
-        message: 'OTP sent to your email.'
-      });
-    } catch (err) {
-      user.loginOtp = undefined;
-      user.loginOtpExpire = undefined;
-      await user.save();
-      return res.status(500).json({
-        success: false,
-        error: { code: 'EMAIL_ERROR', message: 'Could not send OTP email' }
-      });
-    }
-  }
+  // No mandatory OTP at login. Let the user log in. If unverified, they verify via the Profile page.
 
   const accessToken = generateToken(user._id, user.role);
   const refreshToken = generateRefreshToken(user._id);
@@ -158,6 +120,7 @@ exports.login = asyncHandler(async (req, res) => {
       role: user.role,
       credits: user.credits,
       profileImage: user.profileImage,
+      isVerified: user.isVerified,
       accessToken,
       refreshToken
     }
