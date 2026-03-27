@@ -353,8 +353,169 @@ exports.verifyLoginOtp = asyncHandler(async (req, res) => {
       role: user.role,
       credits: user.credits,
       profileImage: user.profileImage,
+      isVerified: user.isVerified,
       accessToken,
       refreshToken
     }
   });
+});
+
+/**
+ * @desc    Send Email OTP for in-app email verification (logged-in user)
+ * @route   POST /api/auth/send-email-otp
+ * @access  Private
+ */
+exports.sendEmailOtp = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id);
+
+  if (!user) {
+    return res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'User not found' } });
+  }
+
+  if (user.isVerified) {
+    return res.status(400).json({
+      success: false,
+      error: { code: 'ALREADY_VERIFIED', message: 'Your email is already verified' }
+    });
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  user.loginOtp = otp;
+  user.loginOtpExpire = Date.now() + 10 * 60 * 1000;
+  await user.save();
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: 'Tap2Help — Email Verification Code 📧',
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #4F46E5;">Verify Your Email Address</h2>
+          <p>Hi <strong>${user.name}</strong>, please use the code below to verify your email address on Tap2Help:</p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin: 24px 0; text-align: center;">
+            <p style="margin-top: 0; color: #475569; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Your Verification Code</p>
+            <h1 style="letter-spacing: 10px; color: #4F46E5; font-size: 42px; margin: 10px 0;">${otp}</h1>
+            <p style="margin-bottom: 0; color: #64748b; font-size: 13px;">Valid for 10 minutes. Do not share this code.</p>
+          </div>
+          <p>If you did not request this, please ignore this email.</p>
+          <p>Best regards,<br><b>Tap2Help Team</b></p>
+        </div>
+      `
+    });
+  } catch (err) {
+    console.error('[Send Email OTP Error]', err.message);
+    user.loginOtp = undefined;
+    user.loginOtpExpire = undefined;
+    await user.save();
+    return res.status(500).json({
+      success: false,
+      error: { code: 'EMAIL_ERROR', message: 'Could not send verification email. Please check your connection and try again.' }
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'OTP sent to your email address'
+  });
+});
+
+/**
+ * @desc    Verify Email OTP (logged-in user — marks account as verified in DB)
+ * @route   POST /api/auth/verify-email-otp
+ * @access  Private
+ */
+exports.verifyEmailOtp = asyncHandler(async (req, res) => {
+  const { otp } = req.body;
+
+  if (!otp || String(otp).length !== 6) {
+    return res.status(400).json({
+      success: false,
+      error: { code: 'INVALID_OTP', message: 'Please provide the 6-digit verification code' }
+    });
+  }
+
+  const user = await User.findOne({
+    _id: req.user.id,
+    loginOtp: String(otp),
+    loginOtpExpire: { $gt: Date.now() }
+  });
+
+  if (!user) {
+    return res.status(400).json({
+      success: false,
+      error: { code: 'INVALID_OTP', message: 'Invalid or expired OTP. Please request a new one.' }
+    });
+  }
+
+  user.isVerified = true;
+  user.verifiedAt = new Date();
+  user.verificationStatus = 'verified';
+  user.loginOtp = undefined;
+  user.loginOtpExpire = undefined;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'Email verified successfully! 🎉',
+    data: {
+      isVerified: true,
+      verifiedAt: user.verifiedAt
+    }
+  });
+});
+
+/**
+ * @desc    Resend registration / pre-login OTP to email (public — no auth needed)
+ * @route   POST /api/auth/resend-otp
+ * @access  Public
+ */
+exports.resendOtp = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      error: { code: 'MISSING_EMAIL', message: 'Please provide your email address' }
+    });
+  }
+
+  // Intentional: generic response to avoid email enumeration
+  const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+  if (!user || user.isVerified) {
+    // Don't reveal whether the user exists or is already verified
+    return res.status(200).json({ success: true, message: 'If this email is registered and unverified, a new code has been sent.' });
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  user.loginOtp = otp;
+  user.loginOtpExpire = Date.now() + 10 * 60 * 1000;
+  await user.save();
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: 'Tap2Help — New Verification Code 🔁',
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #4F46E5;">New Verification Code</h2>
+          <p>Hi <strong>${user.name}</strong>, here is your new verification code:</p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin: 24px 0; text-align: center;">
+            <p style="margin-top: 0; color: #475569; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Verification Code</p>
+            <h1 style="letter-spacing: 10px; color: #4F46E5; font-size: 42px; margin: 10px 0;">${otp}</h1>
+            <p style="margin-bottom: 0; color: #64748b; font-size: 13px;">Valid for 10 minutes. Do not share this code.</p>
+          </div>
+          <p>Best regards,<br><b>Tap2Help Team</b></p>
+        </div>
+      `
+    });
+  } catch (err) {
+    console.error('[Resend OTP Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'EMAIL_ERROR', message: 'Could not send verification email. Please try again.' }
+    });
+  }
+
+  res.status(200).json({ success: true, message: 'A new verification code has been sent to your email.' });
 });

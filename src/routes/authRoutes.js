@@ -2,7 +2,8 @@ const express = require('express');
 const {
   register, login, getMe, refreshToken,
   updatePassword, registerFCMToken,
-  forgotPassword, resetPassword, verifyLoginOtp
+  forgotPassword, resetPassword, verifyLoginOtp,
+  sendEmailOtp, verifyEmailOtp, resendOtp
 } = require('../controllers/authController');
 const { validateRegister, validateLogin, validateUpdatePassword, validateFCMToken } = require('../middleware/validation');
 const { authLimiter } = require('../middleware/rateLimiter');
@@ -19,5 +20,8 @@ router.put('/update-password', protect, validateUpdatePassword, updatePassword);
 router.post('/fcm-token', protect, validateFCMToken, registerFCMToken);
 router.post('/forgot-password', authLimiter, forgotPassword);
 router.put('/reset-password/:resettoken', resetPassword);
+router.post('/resend-otp', authLimiter, resendOtp);
+router.post('/send-email-otp', protect, sendEmailOtp);
+router.post('/verify-email-otp', protect, verifyEmailOtp);
 
 module.exports = router;
