@@ -1,0 +1,64 @@
+{
+  "name": "tap2help-backend",
+  "version": "2.0.0",
+  "description": "Tap2Help Backend System — Production Grade",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "jest --runInBand --forceExit",
+    "test:watch": "jest --watch --runInBand",
+    "test:coverage": "jest --coverage --runInBand --forceExit"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ],
+    "testMatch": [
+      "**/tests/unit/**/*.test.js"
+    ],
+    "testTimeout": 60000,
+    "verbose": true
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^7.1.1",
+    "express-validator": "^7.0.1",
+    "firebase-admin": "^13.7.0",
+    "helmet": "^7.0.0",
+    "hpp": "^0.2.3",
+    "ioredis": "^5.10.1",
+    "jsonwebtoken": "^9.0.2",
+    "mixpanel": "^0.20.0",
+    "mongoose": "^7.5.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^8.0.1",
+    "razorpay": "^2.9.6",
+    "redis": "^5.11.0",
+    "socket.io": "^4.7.2",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "twilio": "^5.13.1",
+    "uuid": "^9.0.0",
+    "winston": "^3.19.0",
+    "xss-clean": "^0.1.4",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "mongodb-memory-server": "^9.1.1",
+    "nodemon": "^3.0.1",
+    "supertest": "^6.3.3"
+  },
+  "overrides": {
+    "@tootallnate/once": "^3.0.1",
+    "tar": "^7.5.11"
+  }
+}
